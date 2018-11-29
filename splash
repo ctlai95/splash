@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+
+KEYWORD="$1"
+UNSPLASH_DIR="$HOME/Pictures/unsplash"
+
+function getResolution() {
+	OUT=$(system_profiler SPDisplaysDataType | grep Resolution | head -n 1)
+	REGEX="Resolution: ([0-9]+) x ([0-9]+)"
+	if [[ $OUT =~ $REGEX ]]; then
+		echo "${BASH_REMATCH[1]}"x"${BASH_REMATCH[2]}"
+	fi
+}
+
+function getURLFromCurl() {
+	OUT=$(curl --silent https://source.unsplash.com/$1/?$2)
+	REGEX="<html><body>You are being <a href=\"(.*)\""
+	 if [[ $OUT =~ $REGEX ]]; then
+	 	echo "${BASH_REMATCH[1]}"
+	 fi
+}
+
+function getFileNameFromURL() {
+	REGEX="https://images.unsplash.com/(.*)\?"
+	if [[ $1 =~ $REGEX ]]; then
+		echo "${BASH_REMATCH[1]}.jpg"
+	fi
+}
+
+function saveWallpaper() {
+	if [[ -z "$KEYWORD" ]]; then
+		KEYWORD="no-keyword"
+	fi
+	FILENAME=$(getFileNameFromURL "$1")
+	DIR="$UNSPLASH_DIR/$KEYWORD"
+	FILEPATH="$DIR/$FILENAME"
+	mkdir -p "$DIR"
+	wget --quiet "$1" -O "$FILEPATH"
+	echo "$FILEPATH"
+	echo "Image saved to $FILEPATH" > /dev/stderr
+}
+
+function setWallpaper() {
+osascript <<EOD
+tell application "System Events"
+tell every desktop
+set picture to "$1"
+end tell
+end tell
+EOD
+echo "Wallpaper changed!"
+}
+
+RESOLUTION=$(getResolution)
+URL=$(getURLFromCurl $RESOLUTION $KEYWORD)
+FILEPATH=$(saveWallpaper "$URL")
+setWallpaper "$FILEPATH"
